@@ -3788,6 +3788,91 @@ namespace exprtk
             std::vector<std::pair<lexer::token,lexer::token> > error_list_;
          };
 
+         class sequence_validator_3tokens : public lexer::token_scanner
+         {
+         private:
+
+            typedef lexer::token::token_type token_t;
+            typedef std::pair<token_t,std::pair<token_t,token_t>> token_triplet_t;
+            typedef std::set<token_triplet_t> set_t;
+
+         public:
+
+            using lexer::token_scanner::operator();
+
+            sequence_validator_3tokens()
+            : lexer::token_scanner(3)
+            {
+               add_invalid(lexer::token::e_number , lexer::token::e_number , lexer::token::e_number);
+               add_invalid(lexer::token::e_string , lexer::token::e_string , lexer::token::e_string);
+               add_invalid(lexer::token::e_comma  , lexer::token::e_comma  , lexer::token::e_comma );
+
+               add_invalid(lexer::token::e_add ,lexer::token::e_add , lexer::token::e_add);
+               add_invalid(lexer::token::e_sub ,lexer::token::e_sub , lexer::token::e_sub);
+               add_invalid(lexer::token::e_div ,lexer::token::e_div , lexer::token::e_div);
+               add_invalid(lexer::token::e_mul ,lexer::token::e_mul , lexer::token::e_mul);
+               add_invalid(lexer::token::e_mod ,lexer::token::e_mod , lexer::token::e_mod);
+               add_invalid(lexer::token::e_pow ,lexer::token::e_pow , lexer::token::e_pow);
+
+               add_invalid(lexer::token::e_add ,lexer::token::e_sub , lexer::token::e_add);
+               add_invalid(lexer::token::e_sub ,lexer::token::e_add , lexer::token::e_sub);
+               add_invalid(lexer::token::e_div ,lexer::token::e_mul , lexer::token::e_div);
+               add_invalid(lexer::token::e_mul ,lexer::token::e_div , lexer::token::e_mul);
+               add_invalid(lexer::token::e_mod ,lexer::token::e_pow , lexer::token::e_mod);
+               add_invalid(lexer::token::e_pow ,lexer::token::e_mod , lexer::token::e_pow);
+            }
+
+            bool result()
+            {
+               return error_list_.empty();
+            }
+
+            bool operator() (const lexer::token& t0, const lexer::token& t1, const lexer::token& t2)
+            {
+               const set_t::value_type p = std::make_pair(t0.type,std::make_pair(t1.type,t2.type));
+
+               if (invalid_comb_.find(p) != invalid_comb_.end())
+               {
+                  error_list_.push_back(std::make_pair(t0,t1));
+               }
+
+               return true;
+            }
+
+            std::size_t error_count() const
+            {
+               return error_list_.size();
+            }
+
+            std::pair<lexer::token,lexer::token> error(const std::size_t index)
+            {
+               if (index < error_list_.size())
+               {
+                  return error_list_[index];
+               }
+               else
+               {
+                  static const lexer::token error_token;
+                  return std::make_pair(error_token,error_token);
+               }
+            }
+
+            void clear_errors()
+            {
+               error_list_.clear();
+            }
+
+         private:
+
+            void add_invalid(token_t t0, token_t t1, token_t t2)
+            {
+               invalid_comb_.insert(std::make_pair(t0,std::make_pair(t1,t2)));
+            }
+
+            set_t invalid_comb_;
+            std::vector<std::pair<lexer::token,lexer::token> > error_list_;
+         };
+
          struct helper_assembly
          {
             inline bool register_scanner(lexer::token_scanner* scanner)
@@ -16732,7 +16817,7 @@ namespace exprtk
          return (*this);
       }
 
-      inline bool operator==(const symbol_table<T>& st)
+      inline bool operator==(const symbol_table<T>& st) const
       {
          return (this == &st) || (control_block_ == st.control_block_);
       }
@@ -17729,7 +17814,7 @@ namespace exprtk
          return *this;
       }
 
-      inline bool operator==(const expression<T>& e)
+      inline bool operator==(const expression<T>& e) const
       {
          return (this == &e);
       }
@@ -18516,7 +18601,7 @@ namespace exprtk
          {
             parser_.state_.scope_depth++;
             #ifdef exprtk_enable_debugging
-            std::string depth(2 * parser_.state_.scope_depth,'-');
+            const std::string depth(2 * parser_.state_.scope_depth,'-');
             exprtk_debug(("%s> Scope Depth: %02d\n",
                           depth.c_str(),
                           static_cast<int>(parser_.state_.scope_depth)));
@@ -18528,7 +18613,7 @@ namespace exprtk
             parser_.sem_.deactivate(parser_.state_.scope_depth);
             parser_.state_.scope_depth--;
             #ifdef exprtk_enable_debugging
-            std::string depth(2 * parser_.state_.scope_depth,'-');
+            const std::string depth(2 * parser_.state_.scope_depth,'-');
             exprtk_debug(("<%s Scope Depth: %02d\n",
                           depth.c_str(),
                           static_cast<int>(parser_.state_.scope_depth)));
@@ -19908,7 +19993,8 @@ namespace exprtk
 
             if (settings_.sequence_check_enabled())
             {
-               helper_assembly_.register_scanner(&sequence_validator_);
+               helper_assembly_.register_scanner(&sequence_validator_      );
+               helper_assembly_.register_scanner(&sequence_validator_3tkns_);
             }
          }
       }
@@ -20084,9 +20170,10 @@ namespace exprtk
             {
                if (helper_assembly_.error_token_scanner)
                {
-                  lexer::helper::bracket_checker*    bracket_checker_ptr    = 0;
-                  lexer::helper::numeric_checker*    numeric_checker_ptr    = 0;
-                  lexer::helper::sequence_validator* sequence_validator_ptr = 0;
+                  lexer::helper::bracket_checker*            bracket_checker_ptr     = 0;
+                  lexer::helper::numeric_checker*            numeric_checker_ptr     = 0;
+                  lexer::helper::sequence_validator*         sequence_validator_ptr  = 0;
+                  lexer::helper::sequence_validator_3tokens* sequence_validator3_ptr = 0;
 
                   if (0 != (bracket_checker_ptr = dynamic_cast<lexer::helper::bracket_checker*>(helper_assembly_.error_token_scanner)))
                   {
@@ -20132,6 +20219,26 @@ namespace exprtk
                      if (sequence_validator_ptr->error_count())
                      {
                         sequence_validator_ptr->clear_errors();
+                     }
+                  }
+                  else if (0 != (sequence_validator3_ptr = dynamic_cast<lexer::helper::sequence_validator_3tokens*>(helper_assembly_.error_token_scanner)))
+                  {
+                     for (std::size_t i = 0; i < sequence_validator3_ptr->error_count(); ++i)
+                     {
+                        std::pair<lexer::token,lexer::token> error_token = sequence_validator3_ptr->error(i);
+
+                        set_error(
+                           make_error(parser_error::e_token,
+                                      error_token.first,
+                                      "ERR007 - Invalid token sequence: '" +
+                                      error_token.first.value  + "' and '" +
+                                      error_token.second.value + "'",
+                                      exprtk_error_location));
+                     }
+
+                     if (sequence_validator3_ptr->error_count())
+                     {
+                        sequence_validator3_ptr->clear_errors();
                      }
                   }
                }
@@ -20278,9 +20385,9 @@ namespace exprtk
       #ifdef exprtk_enable_debugging
       inline void next_token()
       {
-         std::string ct_str = current_token().value;
+         const std::string ct_str = current_token().value;
          parser_helper::next_token();
-         std::string depth(2 * state_.scope_depth,' ');
+         const std::string depth(2 * state_.scope_depth,' ');
          exprtk_debug(("%s"
                        "prev[%s] --> curr[%s]\n",
                        depth.c_str(),
@@ -20330,7 +20437,7 @@ namespace exprtk
 
                end_token = current_token();
 
-               std::string sub_expr = construct_subexpr(begin_token,end_token);
+               const std::string sub_expr = construct_subexpr(begin_token, end_token);
 
                exprtk_debug(("parse_corpus(%02d) Subexpr: %s\n",
                              static_cast<int>(arg_list.size() - 1),
@@ -20539,7 +20646,7 @@ namespace exprtk
             else if (current_state.left < precedence)
                break;
 
-            lexer::token prev_token = current_token();
+            const lexer::token prev_token = current_token();
 
             next_token();
 
@@ -23955,9 +24062,9 @@ namespace exprtk
             }
 
             if (
-                 !token_is(token_t::e_rbracket   ,prsrhlpr_t::e_hold) &&
-                 !token_is(token_t::e_rcrlbracket,prsrhlpr_t::e_hold) &&
-                 !token_is(token_t::e_rsqrbracket,prsrhlpr_t::e_hold)
+                 !token_is(token_t::e_rbracket   , prsrhlpr_t::e_hold) &&
+                 !token_is(token_t::e_rcrlbracket, prsrhlpr_t::e_hold) &&
+                 !token_is(token_t::e_rsqrbracket, prsrhlpr_t::e_hold)
                )
             {
                if (!token_is(token_t::e_eof))
@@ -24055,10 +24162,14 @@ namespace exprtk
          if (null_initialisation)
             result = expression_generator_(T(0.0));
          else if (vec_to_vec_initialiser)
+         {
+            expression_node_ptr vec_node = node_allocator_.allocate<vector_node_t>(vec_holder);
+
             result = expression_generator_(
                         details::e_assign,
-                        node_allocator_.allocate<vector_node_t>(vec_holder),
+                        vec_node,
                         vec_initilizer_list[0]);
+         }
          else
             result = node_allocator_
                         .allocate<details::vector_assignment_node<T> >(
@@ -24243,9 +24354,9 @@ namespace exprtk
          }
 
          if (
-              !token_is(token_t::e_rbracket   ,prsrhlpr_t::e_hold) &&
-              !token_is(token_t::e_rcrlbracket,prsrhlpr_t::e_hold) &&
-              !token_is(token_t::e_rsqrbracket,prsrhlpr_t::e_hold)
+              !token_is(token_t::e_rbracket   , prsrhlpr_t::e_hold) &&
+              !token_is(token_t::e_rcrlbracket, prsrhlpr_t::e_hold) &&
+              !token_is(token_t::e_rsqrbracket, prsrhlpr_t::e_hold)
             )
          {
             if (!token_is(token_t::e_eof,prsrhlpr_t::e_hold))
@@ -24732,7 +24843,7 @@ namespace exprtk
             return error_node();
          }
 
-         lexer::token prev_token = current_token();
+         const lexer::token prev_token = current_token();
 
          if (token_is(token_t::e_rsqrbracket))
          {
@@ -26293,15 +26404,19 @@ namespace exprtk
             return (*this)(operation,branch);
          }
 
-         inline expression_node_ptr operator() (const details::operator_type& operation, expression_node_ptr b0, expression_node_ptr b1)
+         inline expression_node_ptr operator() (const details::operator_type& operation, expression_node_ptr& b0, expression_node_ptr& b1)
          {
-            if ((0 == b0) || (0 == b1))
-               return error_node();
-            else
+            expression_node_ptr result = error_node();
+
+            if ((0 != b0) && (0 != b1))
             {
                expression_node_ptr branch[2] = { b0, b1 };
-               return expression_generator<Type>::operator()(operation,branch);
+               result = expression_generator<Type>::operator()(operation, branch);
+               b0 = branch[0];
+               b1 = branch[1];
             }
+
+            return result;
          }
 
          inline expression_node_ptr conditional(expression_node_ptr condition,
@@ -29295,7 +29410,7 @@ namespace exprtk
                typedef details::T0oT1oT2_base_node<Type>* sf3ext_base_ptr;
 
                sf3ext_base_ptr n = static_cast<sf3ext_base_ptr>(sf3node);
-               std::string id = "t" + expr_gen.to_str(operation) + "(" + n->type_id() + ")";
+               const std::string id = "t" + expr_gen.to_str(operation) + "(" + n->type_id() + ")";
 
                switch (n->type())
                {
@@ -29338,7 +29453,7 @@ namespace exprtk
 
                sf3ext_base_ptr n = static_cast<sf3ext_base_ptr>(sf3node);
 
-               std::string id = "(" + n->type_id() + ")" + expr_gen.to_str(operation) + "t";
+               const std::string id = "(" + n->type_id() + ")" + expr_gen.to_str(operation) + "t";
 
                switch (n->type())
                {
@@ -34672,13 +34787,14 @@ namespace exprtk
 
       lexer::helper::helper_assembly helper_assembly_;
 
-      lexer::helper::commutative_inserter commutative_inserter_;
-      lexer::helper::operator_joiner      operator_joiner_2_;
-      lexer::helper::operator_joiner      operator_joiner_3_;
-      lexer::helper::symbol_replacer      symbol_replacer_;
-      lexer::helper::bracket_checker      bracket_checker_;
-      lexer::helper::numeric_checker      numeric_checker_;
-      lexer::helper::sequence_validator   sequence_validator_;
+      lexer::helper::commutative_inserter       commutative_inserter_;
+      lexer::helper::operator_joiner            operator_joiner_2_;
+      lexer::helper::operator_joiner            operator_joiner_3_;
+      lexer::helper::symbol_replacer            symbol_replacer_;
+      lexer::helper::bracket_checker            bracket_checker_;
+      lexer::helper::numeric_checker            numeric_checker_;
+      lexer::helper::sequence_validator         sequence_validator_;
+      lexer::helper::sequence_validator_3tokens sequence_validator_3tkns_;
 
       template <typename ParserType>
       friend void details::disable_type_checking(ParserType& p);
@@ -36738,7 +36854,7 @@ namespace exprtk
             }
          }
 
-         bool eof()
+         bool eof() const
          {
             switch (mode)
             {
@@ -36749,7 +36865,7 @@ namespace exprtk
             }
          }
 
-         file_mode get_file_mode(const std::string& access)
+         file_mode get_file_mode(const std::string& access) const
          {
             if (access.empty() || access.size() > 2)
                return e_error;
@@ -38236,9 +38352,9 @@ namespace exprtk
    namespace information
    {
       static const char* library = "Mathematical Expression Toolkit";
-      static const char* version = "2.718281828459045235360287471352662497757247093699"
-                                   "95957496696762772407663035354759457138217852516642";
-      static const char* date    = "20180913";
+      static const char* version = "2.7182818284590452353602874713526624977572470936999"
+                                   "595749669676277240766303535475945713821785251664274";
+      static const char* date    = "20181216";
 
       static inline std::string data()
       {
