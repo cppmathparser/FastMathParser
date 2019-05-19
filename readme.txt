@@ -2770,7 +2770,7 @@ expression being compiled.
 
 This can become problematic, as in the default scenario it is  assumed
 the symbol_table that is registered with the expression instance  will
-already  posses  the  externally  available  variables,  functions and
+already possess  the  externally  available  variables,  functions and
 constants needed during the compilation of the expression.
 
 In the event there are symbols in the expression that can't be  mapped
@@ -2893,7 +2893,7 @@ after which the expression itself can be evaluated.
 
    for (auto& var_name : variable_list)
    {
-      T& v = symbol_table.variable_ref(var_name);
+      T& v = unknown_var_symbol_table.variable_ref(var_name);
 
       v = ...;
    }

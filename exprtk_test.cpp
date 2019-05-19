@@ -3,7 +3,7 @@
  *         C++ Mathematical Expression Toolkit Library        *
  *                                                            *
  * Examples and Unit-Tests                                    *
- * Author: Arash Partow (1999-2018)                           *
+ * Author: Arash Partow (1999-2019)                           *
  * URL: http://www.partow.net/programming/exprtk/index.html   *
  *                                                            *
  * Copyright notice:                                          *
@@ -23,6 +23,7 @@
 #include <deque>
 #include <fstream>
 #include <iostream>
+#include <numeric>
 #include <string>
 #include <vector>
 
@@ -2839,7 +2840,14 @@ inline bool run_test03()
                                    "1+-+-+",
                                    "1===",
                                    "1====",
-                                   "[*][*][*][*][*]"
+                                   "[*][*][*][*][*]",
+
+                                   "var v[1] := {}; var s0appe0 := false; repeat s0appe0 false for(){(){}}",
+                                   "var v[2] := {}; repeat var s0appe0 := false; s0appe0 false for(){(){}}",
+                                   "var v[3] := {}; repeat var s0appe0 := false; for(){(){}} s0appe0 false",
+                                   "var v[4] := {}; repeat var s0appe0 := false; s0appe0 for(){(){}} false",
+                                   "var v[5] := {}; repeat for(){(){}} var s0appe0 := false; s0appe0 false",
+                                   "var v{};v ;v  60;v 60;v o5"
                                  };
 
       const std::size_t invalid_expr_size = sizeof(invalid_expr) / sizeof(std::string);
@@ -5746,6 +5754,29 @@ struct vararg_func : public exprtk::igeneric_function<T>
    }
 };
 
+template <typename T>
+struct vecrebase_func : public exprtk::igeneric_function<T>
+{
+   typedef typename exprtk::igeneric_function<T>::parameter_list_t
+                                                  parameter_list_t;
+
+   typedef typename exprtk::igeneric_function<T>::generic_type
+                                                  generic_type;
+
+   typedef typename generic_type::vector_view vector_t;
+
+   using exprtk::igeneric_function<T>::operator();
+
+   vecrebase_func()
+   : exprtk::igeneric_function<T>("V")
+   {}
+
+   inline T operator()(parameter_list_t params)
+   {
+      vector_t v(params[0]);
+      return std::accumulate(v.begin(), v.end(), T(0));
+   }
+};
 
 template <typename T>
 inline bool run_test18()
@@ -6685,6 +6716,68 @@ inline bool run_test18()
    }
 
    {
+      typedef exprtk::symbol_table<T> symbol_table_t;
+      typedef exprtk::expression<T>     expression_t;
+      typedef exprtk::parser<T>             parser_t;
+
+      T v0[] = { T(0), T(1), T(2), T(3), T(4) };
+      T v1[] = { T(5), T(6), T(7), T(8), T(9) };
+
+      const std::size_t v0_size = sizeof(v0) / sizeof (T);
+      const std::size_t v1_size = sizeof(v1) / sizeof (T);
+
+      exprtk::vector_view<T> v = exprtk::make_vector_view(v0, v0_size);
+
+      vecrebase_func<T> vec_sum;
+
+      symbol_table_t symbol_table;
+      symbol_table.add_vector("v",v);
+      symbol_table.add_function("vec_sum",vec_sum);
+
+      expression_t expression;
+      expression.register_symbol_table(symbol_table);
+
+      parser_t parser;
+
+      const std::string expr_string = "vec_sum(v)";
+
+      if (!parser.compile(expr_string,expression))
+      {
+         printf("run_test18() - Error: %s\tExpression: %s\n",
+                parser.error().c_str(),
+                expr_string.c_str());
+
+         return false;
+      }
+
+      const T expected_result0 = std::accumulate(v0, v0 + v0_size,T(0));
+
+      if (expression.value() != expected_result0)
+      {
+         printf("run_test18() - Error in evaluation! (10.1) Expression: %s  Expected: %5.3f  Computed: %5.3f\n",
+                expr_string.c_str(),
+                expected_result0,
+                expression.value());
+
+         return false;
+      }
+
+      v.rebase(v1);
+
+      const T expected_result1 = std::accumulate(v1, v1 + v1_size,T(0));
+
+      if (expression.value() != expected_result1)
+      {
+         printf("run_test18() - Error in evaluation! (10.2) Expression: %s  Expected: %5.3f  Computed: %5.3f\n",
+                expr_string.c_str(),
+                expected_result1,
+                expression.value());
+
+         return false;
+      }
+   }
+
+   {
       bool failure = false;
 
       typedef exprtk::symbol_table<T> symbol_table_t;
@@ -6816,7 +6909,7 @@ inline bool run_test18()
 
          if (result != T(1))
          {
-            printf("run_test18() - Error in evaluation! (10) Expression: %s\n",
+            printf("run_test18() - Error in evaluation! (11) Expression: %s\n",
                    expr_str_list[i].c_str());
 
             failure = true;
