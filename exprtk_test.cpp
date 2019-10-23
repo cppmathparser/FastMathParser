@@ -4251,6 +4251,62 @@ inline bool run_test10()
    }
 
    {
+      const std::string expression =
+                           "for (var i := 0; i < min(x[],y[],z[]); i += 1)"
+                           "{ z[i] := 3sin(x[i]) + 2log(y[i]); }";
+
+      std::vector<std::string> var_symbol_list;
+      std::vector<std::string> func_symbol_list;
+
+      if (!exprtk::collect_variables(expression, var_symbol_list))
+      {
+         printf("run_test10() - Failed to collect variables.\n");
+         return false;
+      }
+
+      if (!exprtk::collect_functions(expression, func_symbol_list))
+      {
+         printf("run_test10() - Failed to collect functions.\n");
+         return false;
+      }
+
+      std::sort(var_symbol_list .begin(), var_symbol_list .end());
+      std::sort(func_symbol_list.begin(), func_symbol_list.end());
+
+      std::vector<std::string> expected_var_symbol_list;
+      std::vector<std::string> expected_func_symbol_list;
+
+      expected_var_symbol_list.push_back("i");
+      expected_var_symbol_list.push_back("x");
+      expected_var_symbol_list.push_back("y");
+      expected_var_symbol_list.push_back("z");
+
+      expected_func_symbol_list.push_back("log");
+      expected_func_symbol_list.push_back("min");
+      expected_func_symbol_list.push_back("sin");
+
+      const bool var_result = (var_symbol_list.size() == expected_var_symbol_list.size()) &&
+                               std::equal(var_symbol_list.begin(),
+                                          var_symbol_list.end(),
+                                          expected_var_symbol_list.begin());
+      if (!var_result)
+      {
+         printf("run_test10() - Failed collected variable comparison between recieved and expected variables\n");
+         return false;
+      }
+
+      const bool func_result = (func_symbol_list.size() == expected_func_symbol_list.size()) &&
+                               std::equal(func_symbol_list.begin(),
+                                          func_symbol_list.end(),
+                                          expected_func_symbol_list.begin());
+      if (!func_result)
+      {
+         printf("run_test10() - Failed collected fuctions comparison between recieved and expected functions\n");
+         return false;
+      }
+   }
+
+   {
       std::string expression_list[] =
       {
         "var x; 1",
@@ -5779,6 +5835,86 @@ struct vecrebase_func : public exprtk::igeneric_function<T>
 };
 
 template <typename T>
+struct overload_func : exprtk::igeneric_function<T>
+{
+   typedef typename exprtk::igeneric_function<T> igfun_t;
+   typedef typename igfun_t::parameter_list_t    parameter_list_t;
+   typedef typename igfun_t::generic_type        generic_type;
+   typedef typename generic_type::vector_view    vector_t;
+
+   using exprtk::igeneric_function<T>::operator();
+
+   overload_func(const std::string& param_seq_list)
+   : exprtk::igeneric_function<T>(param_seq_list, igfun_t::e_rtrn_overload),
+     current_ps_index(std::numeric_limits<std::size_t>::max())
+   {
+      clear();
+   }
+
+   void clear()
+   {
+      current_ps_index  = std::numeric_limits<std::size_t>::max();
+      current_param_seq = "";
+   }
+
+   inline T operator()(const std::size_t& ps_index,
+                       parameter_list_t parameters)
+   {
+      current_ps_index = ps_index;
+      determine_param_seq(parameters);
+      return T(1);
+   }
+
+   inline T operator()(const std::size_t& ps_index,
+                       std::string& result,
+                       parameter_list_t parameters)
+   {
+      current_ps_index = ps_index;
+      determine_param_seq(parameters);
+      result = "string result";
+      return T(1);
+   }
+
+   void determine_param_seq(parameter_list_t parameters)
+   {
+      current_param_seq = "";
+
+      for (std::size_t i = 0; i < parameters.size(); ++i)
+      {
+         generic_type& gt = parameters[i];
+
+         switch (gt.type)
+         {
+            case generic_type::e_scalar : current_param_seq += "T";
+                                          break;
+
+            case generic_type::e_vector : current_param_seq += "V";
+                                          break;
+
+            case generic_type::e_string : current_param_seq += "S";
+                                          break;
+
+            default                     : continue;
+         }
+      }
+   }
+
+   std::size_t current_ps_index;
+   std::string current_param_seq;
+
+   struct test_result_t
+   {
+      test_result_t(const std::size_t psi, const std::string& ps)
+      : ps_index(psi),
+        param_seq(ps)
+      {}
+
+      std::size_t ps_index;
+      std::string param_seq;
+   };
+};
+
+template <typename T>
 inline bool run_test18()
 {
    {
@@ -6911,6 +7047,295 @@ inline bool run_test18()
          {
             printf("run_test18() - Error in evaluation! (11) Expression: %s\n",
                    expr_str_list[i].c_str());
+
+            failure = true;
+         }
+      }
+
+      if (failure)
+         return false;
+   }
+
+   {
+      typedef exprtk::expression<T> expression_t;
+
+      std::string a = "a";
+      std::string b = "b";
+      std::string c = "c";
+      std::string d = "d";
+
+      T x = T(1.1);
+      T y = T(2.2);
+      T z = T(3.3);
+      T w = T(4.4);
+
+      overload_func<T> ovrld_func
+                        (
+                          "T:T|T:TT|T:TTT|T:TTTT|"
+                          "T:S|T:SS|T:SSS|T:SSSS|"
+                          "T:ST|T:STS|T:STST|"
+                          "T:TS|T:TST|T:TSTS|"
+                          "T:TTSS|T:SSTT|T:STTS|T:TSST"
+                        );
+
+      exprtk::symbol_table<T> symbol_table;
+
+      symbol_table.add_constants();
+      symbol_table.add_variable ("x",x);
+      symbol_table.add_variable ("y",y);
+      symbol_table.add_variable ("z",z);
+      symbol_table.add_variable ("w",w);
+
+      symbol_table.add_stringvar("a",a);
+      symbol_table.add_stringvar("b",b);
+      symbol_table.add_stringvar("c",c);
+      symbol_table.add_stringvar("d",d);
+
+      symbol_table.add_function("foo",ovrld_func);
+
+      typedef typename overload_func<T>::test_result_t test_result_t;
+      typedef std::pair<std::string, typename overload_func<T>::test_result_t> test_pack_t;
+
+      static const test_pack_t test_pack_list[] =
+                                  {
+                                    test_pack_t("foo(x)"                          , test_result_t( 0, "T"   )),
+                                    test_pack_t("foo(x, y)"                       , test_result_t( 1, "TT"  )),
+                                    test_pack_t("foo(x, y, z)"                    , test_result_t( 2, "TTT" )),
+                                    test_pack_t("foo(x, y, z, w)"                 , test_result_t( 3, "TTTT")),
+                                    test_pack_t("foo(x + y)"                      , test_result_t( 0, "T"   )),
+                                    test_pack_t("foo(x + y, y + z)"               , test_result_t( 1, "TT"  )),
+                                    test_pack_t("foo(x + y, y + z, z + w)"        , test_result_t( 2, "TTT" )),
+                                    test_pack_t("foo(x + y, y + z, z + w, w)"     , test_result_t( 3, "TTTT")),
+                                    test_pack_t("foo(a)"                          , test_result_t( 4, "S"   )),
+                                    test_pack_t("foo(a, b)"                       , test_result_t( 5, "SS"  )),
+                                    test_pack_t("foo(a, b, c)"                    , test_result_t( 6, "SSS" )),
+                                    test_pack_t("foo(a, b, c, d)"                 , test_result_t( 7, "SSSS")),
+                                    test_pack_t("foo(a + b)"                      , test_result_t( 4, "S"   )),
+                                    test_pack_t("foo(a + b, b + c)"               , test_result_t( 5, "SS"  )),
+                                    test_pack_t("foo(a + b, b + c, c + d)"        , test_result_t( 6, "SSS" )),
+                                    test_pack_t("foo(a + b, b + c, c + d, d)"     , test_result_t( 7, "SSSS")),
+                                    test_pack_t("foo(a, x)"                       , test_result_t( 8, "ST"  )),
+                                    test_pack_t("foo(a, x, b)"                    , test_result_t( 9, "STS" )),
+                                    test_pack_t("foo(a, x, b, y)"                 , test_result_t(10, "STST")),
+                                    test_pack_t("foo(a + b, x + y)"               , test_result_t( 8, "ST"  )),
+                                    test_pack_t("foo(a + b, x + y, b + c)"        , test_result_t( 9, "STS" )),
+                                    test_pack_t("foo(a + b, x + y, b + c, y + z)" , test_result_t(10, "STST")),
+                                    test_pack_t("foo(x, a)"                       , test_result_t(11, "TS"  )),
+                                    test_pack_t("foo(x, a, y)"                    , test_result_t(12, "TST" )),
+                                    test_pack_t("foo(x, a, y, b)"                 , test_result_t(13, "TSTS")),
+                                    test_pack_t("foo(x + y, a + b)"               , test_result_t(11, "TS"  )),
+                                    test_pack_t("foo(x + y, a + b, y + z)"        , test_result_t(12, "TST" )),
+                                    test_pack_t("foo(x + y, a + b, y + z, b + c)" , test_result_t(13, "TSTS")),
+                                    test_pack_t("foo(x, y, a, b)"                 , test_result_t(14, "TTSS")),
+                                    test_pack_t("foo(a, b, x, y)"                 , test_result_t(15, "SSTT")),
+                                    test_pack_t("foo(a, x, y, b)"                 , test_result_t(16, "STTS")),
+                                    test_pack_t("foo(x, a, b, y)"                 , test_result_t(17, "TSST")),
+                                    test_pack_t("foo(x + y, y + z, a + b, b + c)" , test_result_t(14, "TTSS")),
+                                    test_pack_t("foo(a + b, b + c, x + y, y + z)" , test_result_t(15, "SSTT")),
+                                    test_pack_t("foo(a + b, x + y, y + z, b + c)" , test_result_t(16, "STTS")),
+                                    test_pack_t("foo(x + y, a + b, b + c, y + z)" , test_result_t(17, "TSST"))
+                                  };
+
+      static const std::size_t test_pack_list_size = sizeof(test_pack_list) / sizeof(test_pack_t);
+
+      std::deque<expression_t> expression_list;
+
+      for (std::size_t i = 0; i < test_pack_list_size; ++i)
+      {
+         expression_t expression;
+         expression.register_symbol_table(symbol_table);
+
+         exprtk::parser<T> parser;
+
+         if (!parser.compile(test_pack_list[i].first, expression))
+         {
+            printf("run_test18() - (12) Overload VarArg Error: %s   Expression: %s\n",
+                   parser.error().c_str(),
+                   test_pack_list[i].first.c_str());
+
+            return false;
+         }
+         else
+            expression_list.push_back(expression);
+      }
+
+      bool failure = false;
+
+      for (std::size_t i = 0; i < expression_list.size(); ++i)
+      {
+         ovrld_func.clear();
+
+         if (T(1) != expression_list[i].value())
+         {
+            printf("run_test18() - Error in evaluation! (12) Expression: %s\n",
+                   test_pack_list[i].first.c_str());
+
+            failure = true;
+         }
+
+         if (ovrld_func.current_ps_index != test_pack_list[i].second.ps_index)
+         {
+            printf("run_test18() - Error with ps_index (12) Expression: %s  Expected: %d  Got: %d\n",
+                   test_pack_list[i].first.c_str(),
+                   static_cast<int>(test_pack_list[i].second.ps_index),
+                   static_cast<int>(ovrld_func.current_ps_index));
+
+            failure = true;
+         }
+
+         if (ovrld_func.current_param_seq != test_pack_list[i].second.param_seq)
+         {
+            printf("run_test18() - Error with parameter seq (12) Expression: %s  Expected: %s  Got: %s\n",
+                   test_pack_list[i].first.c_str(),
+                   test_pack_list[i].second.param_seq.c_str(),
+                   ovrld_func.current_param_seq.c_str());
+
+            failure = true;
+         }
+         ::fflush(stdout);
+      }
+
+      if (failure)
+         return false;
+   }
+
+   {
+      typedef exprtk::expression<T> expression_t;
+
+      std::string a = "a";
+      std::string b = "b";
+      std::string c = "c";
+      std::string d = "d";
+      std::string result = "";
+
+      T x = T(1.1);
+      T y = T(2.2);
+      T z = T(3.3);
+      T w = T(4.4);
+
+      overload_func<T> ovrld_func
+                        (
+                          "S:T|S:TT|S:TTT|S:TTTT|"
+                          "S:S|S:SS|S:SSS|S:SSSS|"
+                          "S:ST|S:STS|S:STST|"
+                          "S:TS|S:TST|S:TSTS|"
+                          "S:TTSS|S:SSTT|S:STTS|S:TSST"
+                        );
+
+      exprtk::symbol_table<T> symbol_table;
+
+      symbol_table.add_constants();
+      symbol_table.add_variable ("x",x);
+      symbol_table.add_variable ("y",y);
+      symbol_table.add_variable ("z",z);
+      symbol_table.add_variable ("w",w);
+
+      symbol_table.add_stringvar("a",a);
+      symbol_table.add_stringvar("b",b);
+      symbol_table.add_stringvar("c",c);
+      symbol_table.add_stringvar("d",d);
+      symbol_table.add_stringvar("result",result);
+
+      symbol_table.add_function("foo",ovrld_func);
+
+      typedef typename overload_func<T>::test_result_t test_result_t;
+      typedef std::pair<std::string, typename overload_func<T>::test_result_t> test_pack_t;
+
+      static const test_pack_t test_pack_list[] =
+                                  {
+                                    test_pack_t("result := foo(x)"                          , test_result_t( 0, "T"   )),
+                                    test_pack_t("result := foo(x, y)"                       , test_result_t( 1, "TT"  )),
+                                    test_pack_t("result := foo(x, y, z)"                    , test_result_t( 2, "TTT" )),
+                                    test_pack_t("result := foo(x, y, z, w)"                 , test_result_t( 3, "TTTT")),
+                                    test_pack_t("result := foo(x + y)"                      , test_result_t( 0, "T"   )),
+                                    test_pack_t("result := foo(x + y, y + z)"               , test_result_t( 1, "TT"  )),
+                                    test_pack_t("result := foo(x + y, y + z, z + w)"        , test_result_t( 2, "TTT" )),
+                                    test_pack_t("result := foo(x + y, y + z, z + w, w)"     , test_result_t( 3, "TTTT")),
+                                    test_pack_t("result := foo(a)"                          , test_result_t( 4, "S"   )),
+                                    test_pack_t("result := foo(a, b)"                       , test_result_t( 5, "SS"  )),
+                                    test_pack_t("result := foo(a, b, c)"                    , test_result_t( 6, "SSS" )),
+                                    test_pack_t("result := foo(a, b, c, d)"                 , test_result_t( 7, "SSSS")),
+                                    test_pack_t("result := foo(a + b)"                      , test_result_t( 4, "S"   )),
+                                    test_pack_t("result := foo(a + b, b + c)"               , test_result_t( 5, "SS"  )),
+                                    test_pack_t("result := foo(a + b, b + c, c + d)"        , test_result_t( 6, "SSS" )),
+                                    test_pack_t("result := foo(a + b, b + c, c + d, d)"     , test_result_t( 7, "SSSS")),
+                                    test_pack_t("result := foo(a, x)"                       , test_result_t( 8, "ST"  )),
+                                    test_pack_t("result := foo(a, x, b)"                    , test_result_t( 9, "STS" )),
+                                    test_pack_t("result := foo(a, x, b, y)"                 , test_result_t(10, "STST")),
+                                    test_pack_t("result := foo(a + b, x + y)"               , test_result_t( 8, "ST"  )),
+                                    test_pack_t("result := foo(a + b, x + y, b + c)"        , test_result_t( 9, "STS" )),
+                                    test_pack_t("result := foo(a + b, x + y, b + c, y + z)" , test_result_t(10, "STST")),
+                                    test_pack_t("result := foo(x, a)"                       , test_result_t(11, "TS"  )),
+                                    test_pack_t("result := foo(x, a, y)"                    , test_result_t(12, "TST" )),
+                                    test_pack_t("result := foo(x, a, y, b)"                 , test_result_t(13, "TSTS")),
+                                    test_pack_t("result := foo(x + y, a + b)"               , test_result_t(11, "TS"  )),
+                                    test_pack_t("result := foo(x + y, a + b, y + z)"        , test_result_t(12, "TST" )),
+                                    test_pack_t("result := foo(x + y, a + b, y + z, b + c)" , test_result_t(13, "TSTS")),
+                                    test_pack_t("result := foo(x, y, a, b)"                 , test_result_t(14, "TTSS")),
+                                    test_pack_t("result := foo(a, b, x, y)"                 , test_result_t(15, "SSTT")),
+                                    test_pack_t("result := foo(a, x, y, b)"                 , test_result_t(16, "STTS")),
+                                    test_pack_t("result := foo(x, a, b, y)"                 , test_result_t(17, "TSST")),
+                                    test_pack_t("result := foo(x + y, y + z, a + b, b + c)" , test_result_t(14, "TTSS")),
+                                    test_pack_t("result := foo(a + b, b + c, x + y, y + z)" , test_result_t(15, "SSTT")),
+                                    test_pack_t("result := foo(a + b, x + y, y + z, b + c)" , test_result_t(16, "STTS")),
+                                    test_pack_t("result := foo(x + y, a + b, b + c, y + z)" , test_result_t(17, "TSST"))
+                                  };
+
+      static const std::size_t test_pack_list_size = sizeof(test_pack_list) / sizeof(test_pack_t);
+
+      std::deque<expression_t> expression_list;
+
+      for (std::size_t i = 0; i < test_pack_list_size; ++i)
+      {
+         expression_t expression;
+         expression.register_symbol_table(symbol_table);
+
+         exprtk::parser<T> parser;
+
+         if (!parser.compile(test_pack_list[i].first, expression))
+         {
+            printf("run_test18() - (13) Overload VarArg Error: %s   Expression: %s\n",
+                   parser.error().c_str(),
+                   test_pack_list[i].first.c_str());
+
+            return false;
+         }
+         else
+            expression_list.push_back(expression);
+      }
+
+      bool failure = false;
+
+      for (std::size_t i = 0; i < expression_list.size(); ++i)
+      {
+         ovrld_func.clear();
+         result = "";
+         expression_list[i].value();
+
+         if (result != "string result")
+         {
+            printf("run_test18() - Error in evaluation! (13) Expression: %s\n",
+                   test_pack_list[i].first.c_str());
+
+            failure = true;
+         }
+
+         if (ovrld_func.current_ps_index != test_pack_list[i].second.ps_index)
+         {
+            printf("run_test18() - Error with ps_index (13) Expression: %s  Expected: %d  Got: %d\n",
+                   test_pack_list[i].first.c_str(),
+                   static_cast<int>(test_pack_list[i].second.ps_index),
+                   static_cast<int>(ovrld_func.current_ps_index));
+
+            failure = true;
+         }
+
+         if (ovrld_func.current_param_seq != test_pack_list[i].second.param_seq)
+         {
+            printf("run_test18() - Error with parameter seq (13) Expression: %s  Expected: %s  Got: %s\n",
+                   test_pack_list[i].first.c_str(),
+                   test_pack_list[i].second.param_seq.c_str(),
+                   ovrld_func.current_param_seq.c_str());
 
             failure = true;
          }
