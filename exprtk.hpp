@@ -2,7 +2,7 @@
  ******************************************************************
  *           C++ Mathematical Expression Toolkit Library          *
  *                                                                *
- * Author: Arash Partow (1999-2019)                               *
+ * Author: Arash Partow (1999-2020)                               *
  * URL: http://www.partow.net/programming/exprtk/index.html       *
  *                                                                *
  * Copyright notice:                                              *
@@ -9119,7 +9119,7 @@ namespace exprtk
       template <typename T>                              \
       struct sf##NN##_op : public sf_base<T>             \
       {                                                  \
-         typedef typename sf_base<T>::Type Type;         \
+         typedef typename sf_base<T>::Type const Type;   \
          static inline T process(Type x, Type y, Type z) \
          {                                               \
             return (OP0);                                \
@@ -9183,7 +9183,7 @@ namespace exprtk
       template <typename T>                                      \
       struct sf##NN##_op : public sf_base<T>                     \
       {                                                          \
-         typedef typename sf_base<T>::Type Type;                 \
+         typedef typename sf_base<T>::Type const Type;           \
          static inline T process(Type x, Type y, Type z, Type w) \
          {                                                       \
             return (OP0);                                        \
@@ -14390,7 +14390,7 @@ namespace exprtk
 
          inline T3 t3() const
          {
-            return t2_;
+            return t3_;
          }
 
          std::string type_id() const
@@ -24180,7 +24180,7 @@ namespace exprtk
             return error_node();
          }
 
-         T vector_size = size_expr->value();
+         const T vector_size = size_expr->value();
 
          free_node(node_allocator_,size_expr);
 
@@ -34565,8 +34565,8 @@ namespace exprtk
          {
             const std::string  s0 = static_cast<details::const_string_range_node<Type>*>(branch[0])->str  ();
                   std::string& s1 = static_cast<details::string_range_node<Type>*>      (branch[1])->ref  ();
-            range_t           rp0 = static_cast<details::const_string_range_node<Type>*>(branch[0])->range();
-            range_t           rp1 = static_cast<details::string_range_node<Type>*>      (branch[1])->range();
+            const range_t     rp0 = static_cast<details::const_string_range_node<Type>*>(branch[0])->range();
+            const range_t     rp1 = static_cast<details::string_range_node<Type>*>      (branch[1])->range();
 
             static_cast<details::const_string_range_node<Type>*>(branch[0])->range_ref().clear();
             static_cast<details::string_range_node<Type>*>      (branch[1])->range_ref().clear();
@@ -34579,9 +34579,9 @@ namespace exprtk
 
          inline expression_node_ptr synthesize_csrocs_expression(const details::operator_type& opr, expression_node_ptr (&branch)[2])
          {
-            std::string       s0 = static_cast<details::const_string_range_node<Type>*>(branch[0])->str  ();
+            const std::string s0 = static_cast<details::const_string_range_node<Type>*>(branch[0])->str  ();
             const std::string s1 = static_cast<details::string_literal_node<Type>*>    (branch[1])->str  ();
-            range_t          rp0 = static_cast<details::const_string_range_node<Type>*>(branch[0])->range();
+            const range_t    rp0 = static_cast<details::const_string_range_node<Type>*>(branch[0])->range();
 
             static_cast<details::const_string_range_node<Type>*>(branch[0])->range_ref().clear();
 
@@ -34592,10 +34592,10 @@ namespace exprtk
 
          inline expression_node_ptr synthesize_csrocsr_expression(const details::operator_type& opr, expression_node_ptr (&branch)[2])
          {
-            std::string   s0 = static_cast<details::const_string_range_node<Type>*>(branch[0])->str  ();
-            std::string   s1 = static_cast<details::const_string_range_node<Type>*>(branch[1])->str  ();
-            range_t      rp0 = static_cast<details::const_string_range_node<Type>*>(branch[0])->range();
-            range_t      rp1 = static_cast<details::const_string_range_node<Type>*>(branch[1])->range();
+            const std::string s0 = static_cast<details::const_string_range_node<Type>*>(branch[0])->str  ();
+            const std::string s1 = static_cast<details::const_string_range_node<Type>*>(branch[1])->str  ();
+            const range_t    rp0 = static_cast<details::const_string_range_node<Type>*>(branch[0])->range();
+            const range_t    rp1 = static_cast<details::const_string_range_node<Type>*>(branch[1])->range();
 
             static_cast<details::const_string_range_node<Type>*>(branch[0])->range_ref().clear();
             static_cast<details::const_string_range_node<Type>*>(branch[1])->range_ref().clear();
@@ -34946,7 +34946,7 @@ namespace exprtk
 
                if (is_constant_foldable<N>(branch))
                {
-                  Type v = expression_point->value();
+                  const Type v = expression_point->value();
                   details::free_node(*node_allocator_,expression_point);
 
                   return node_allocator_->allocate<literal_node_t>(v);
@@ -36826,89 +36826,90 @@ namespace exprtk
    template <typename T>
    inline bool pgo_primer()
    {
-      static const std::string expression_list[]
-                                        = {
-                                             "(y + x)",
-                                             "2 * (y + x)",
-                                             "(2 * y + 2 * x)",
-                                             "(y + x / y) * (x - y / x)",
-                                             "x / ((x + y) * (x - y)) / y",
-                                             "1 - ((x * y) + (y / x)) - 3",
-                                             "sin(2 * x) + cos(pi / y)",
-                                             "1 - sin(2 * x) + cos(pi / y)",
-                                             "sqrt(1 - sin(2 * x) + cos(pi / y) / 3)",
-                                             "(x^2 / sin(2 * pi / y)) -x / 2",
-                                             "x + (cos(y - sin(2 / x * pi)) - sin(x - cos(2 * y / pi))) - y",
-                                             "clamp(-1.0, sin(2 * pi * x) + cos(y / 2 * pi), +1.0)",
-                                             "iclamp(-1.0, sin(2 * pi * x) + cos(y / 2 * pi), +1.0)",
-                                             "max(3.33, min(sqrt(1 - sin(2 * x) + cos(pi / y) / 3), 1.11))",
-                                             "if(avg(x,y) <= x + y, x - y, x * y) + 2 * pi / x",
-                                             "1.1x^1 + 2.2y^2 - 3.3x^3 + 4.4y^4 - 5.5x^5 + 6.6y^6 - 7.7x^27 + 8.8y^55",
-                                             "(yy + xx)",
-                                             "2 * (yy + xx)",
-                                             "(2 * yy + 2 * xx)",
-                                             "(yy + xx / yy) * (xx - yy / xx)",
-                                             "xx / ((xx + yy) * (xx - yy)) / yy",
-                                             "1 - ((xx * yy) + (yy / xx)) - 3",
-                                             "sin(2 * xx) + cos(pi / yy)",
-                                             "1 - sin(2 * xx) + cos(pi / yy)",
-                                             "sqrt(1 - sin(2 * xx) + cos(pi / yy) / 3)",
-                                             "(xx^2 / sin(2 * pi / yy)) -xx / 2",
-                                             "xx + (cos(yy - sin(2 / xx * pi)) - sin(xx - cos(2 * yy / pi))) - yy",
-                                             "clamp(-1.0, sin(2 * pi * xx) + cos(yy / 2 * pi), +1.0)",
-                                             "max(3.33, min(sqrt(1 - sin(2 * xx) + cos(pi / yy) / 3), 1.11))",
-                                             "if(avg(xx,yy) <= xx + yy, xx - yy, xx * yy) + 2 * pi / xx",
-                                             "1.1xx^1 + 2.2yy^2 - 3.3xx^3 + 4.4yy^4 - 5.5xx^5 + 6.6yy^6 - 7.7xx^27 + 8.8yy^55",
-                                             "(1.1*(2.2*(3.3*(4.4*(5.5*(6.6*(7.7*(8.8*(9.9+x)))))))))",
-                                             "(((((((((x+9.9)*8.8)*7.7)*6.6)*5.5)*4.4)*3.3)*2.2)*1.1)",
-                                             "(x + y) * z", "x + (y * z)", "(x + y) * 7", "x + (y * 7)",
-                                             "(x + 7) * y", "x + (7 * y)", "(7 + x) * y", "7 + (x * y)",
-                                             "(2 + x) * 3", "2 + (x * 3)", "(2 + 3) * x", "2 + (3 * x)",
-                                             "(x + 2) * 3", "x + (2 * 3)",
-                                             "(x + y) * (z / w)", "(x + y) * (z / 7)", "(x + y) * (7 / z)", "(x + 7) * (y / z)",
-                                             "(7 + x) * (y / z)", "(2 + x) * (y / z)", "(x + 2) * (y / 3)", "(2 + x) * (y / 3)",
-                                             "(x + 2) * (3 / y)", "x + (y * (z / w))", "x + (y * (z / 7))", "x + (y * (7 / z))",
-                                             "x + (7 * (y / z))", "7 + (x * (y / z))", "2 + (x * (3 / y))", "x + (2 * (y / 4))",
-                                             "2 + (x * (y / 3))", "x + (2 * (3 / y))",
-                                             "x + ((y * z) / w)", "x + ((y * z) / 7)", "x + ((y * 7) / z)", "x + ((7 * y) / z)",
-                                             "7 + ((y * z) / w)", "2 + ((x * 3) / y)", "x + ((2 * y) / 3)", "2 + ((x * y) / 3)",
-                                             "x + ((2 * 3) / y)", "(((x + y) * z) / w)",
-                                             "(((x + y) * z) / 7)", "(((x + y) * 7) / z)", "(((x + 7) * y) / z)", "(((7 + x) * y) / z)",
-                                             "(((2 + x) * 3) / y)", "(((x + 2) * y) / 3)", "(((2 + x) * y) / 3)", "(((x + 2) * 3) / y)",
-                                             "((x + (y * z)) / w)", "((x + (y * z)) / 7)", "((x + (y * 7)) / y)", "((x + (7 * y)) / z)",
-                                             "((7 + (x * y)) / z)", "((2 + (x * 3)) / y)", "((x + (2 * y)) / 3)", "((2 + (x * y)) / 3)",
-                                             "((x + (2 * 3)) / y)",
-                                             "(xx + yy) * zz", "xx + (yy * zz)",
-                                             "(xx + yy) * 7", "xx + (yy * 7)",
-                                             "(xx + 7) * yy", "xx + (7 * yy)",
-                                             "(7 + xx) * yy", "7 + (xx * yy)",
-                                             "(2 + x) * 3", "2 + (x * 3)",
-                                             "(2 + 3) * x", "2 + (3 * x)",
-                                             "(x + 2) * 3", "x + (2 * 3)",
-                                             "(xx + yy) * (zz / ww)", "(xx + yy) * (zz / 7)",
-                                             "(xx + yy) * (7 / zz)", "(xx + 7) * (yy / zz)",
-                                             "(7 + xx) * (yy / zz)", "(2 + xx) * (yy / zz)",
-                                             "(xx + 2) * (yy / 3)", "(2 + xx) * (yy / 3)",
-                                             "(xx + 2) * (3 / yy)", "xx + (yy * (zz / ww))",
-                                             "xx + (yy * (zz / 7))", "xx + (yy * (7 / zz))",
-                                             "xx + (7 * (yy / zz))", "7 + (xx * (yy / zz))",
-                                             "2 + (xx * (3 / yy))", "xx + (2 * (yy / 4))",
-                                             "2 + (xx * (yy / 3))", "xx + (2 * (3 / yy))",
-                                             "xx + ((yy * zz) / ww)", "xx + ((yy * zz) / 7)",
-                                             "xx + ((yy * 7) / zz)", "xx + ((7 * yy) / zz)",
-                                             "7 + ((yy * zz) / ww)", "2 + ((xx * 3) / yy)",
-                                             "xx + ((2 * yy) / 3)", "2 + ((xx * yy) / 3)",
-                                             "xx + ((2 * 3) / yy)", "(((xx + yy) * zz) / ww)",
-                                             "(((xx + yy) * zz) / 7)", "(((xx + yy) * 7) / zz)",
-                                             "(((xx + 7) * yy) / zz)", "(((7 + xx) * yy) / zz)",
-                                             "(((2 + xx) * 3) / yy)", "(((xx + 2) * yy) / 3)",
-                                             "(((2 + xx) * yy) / 3)", "(((xx + 2) * 3) / yy)",
-                                             "((xx + (yy * zz)) / ww)", "((xx + (yy * zz)) / 7)",
-                                             "((xx + (yy * 7)) / yy)", "((xx + (7 * yy)) / zz)",
-                                             "((7 + (xx * yy)) / zz)", "((2 + (xx * 3)) / yy)",
-                                             "((xx + (2 * yy)) / 3)", "((2 + (xx * yy)) / 3)",
-                                             "((xx + (2 * 3)) / yy)"
-                                          };
+      static const std::string expression_list[] =
+             {
+                "(y + x)",
+                "2 * (y + x)",
+                "(2 * y + 2 * x)",
+                "(y + x / y) * (x - y / x)",
+                "x / ((x + y) * (x - y)) / y",
+                "1 - ((x * y) + (y / x)) - 3",
+                "sin(2 * x) + cos(pi / y)",
+                "1 - sin(2 * x) + cos(pi / y)",
+                "sqrt(1 - sin(2 * x) + cos(pi / y) / 3)",
+                "(x^2 / sin(2 * pi / y)) -x / 2",
+                "x + (cos(y - sin(2 / x * pi)) - sin(x - cos(2 * y / pi))) - y",
+                "clamp(-1.0, sin(2 * pi * x) + cos(y / 2 * pi), +1.0)",
+                "iclamp(-1.0, sin(2 * pi * x) + cos(y / 2 * pi), +1.0)",
+                "max(3.33, min(sqrt(1 - sin(2 * x) + cos(pi / y) / 3), 1.11))",
+                "if(avg(x,y) <= x + y, x - y, x * y) + 2 * pi / x",
+                "1.1x^1 + 2.2y^2 - 3.3x^3 + 4.4y^4 - 5.5x^5 + 6.6y^6 - 7.7x^27 + 8.8y^55",
+                "(yy + xx)",
+                "2 * (yy + xx)",
+                "(2 * yy + 2 * xx)",
+                "(yy + xx / yy) * (xx - yy / xx)",
+                "xx / ((xx + yy) * (xx - yy)) / yy",
+                "1 - ((xx * yy) + (yy / xx)) - 3",
+                "sin(2 * xx) + cos(pi / yy)",
+                "1 - sin(2 * xx) + cos(pi / yy)",
+                "sqrt(1 - sin(2 * xx) + cos(pi / yy) / 3)",
+                "(xx^2 / sin(2 * pi / yy)) -xx / 2",
+                "xx + (cos(yy - sin(2 / xx * pi)) - sin(xx - cos(2 * yy / pi))) - yy",
+                "clamp(-1.0, sin(2 * pi * xx) + cos(yy / 2 * pi), +1.0)",
+                "max(3.33, min(sqrt(1 - sin(2 * xx) + cos(pi / yy) / 3), 1.11))",
+                "if(avg(xx,yy) <= xx + yy, xx - yy, xx * yy) + 2 * pi / xx",
+                "1.1xx^1 + 2.2yy^2 - 3.3xx^3 + 4.4yy^4 - 5.5xx^5 + 6.6yy^6 - 7.7xx^27 + 8.8yy^55",
+                "(1.1*(2.2*(3.3*(4.4*(5.5*(6.6*(7.7*(8.8*(9.9+x)))))))))",
+                "(((((((((x+9.9)*8.8)*7.7)*6.6)*5.5)*4.4)*3.3)*2.2)*1.1)",
+                "(x + y) * z", "x + (y * z)", "(x + y) * 7", "x + (y * 7)",
+                "(x + 7) * y", "x + (7 * y)", "(7 + x) * y", "7 + (x * y)",
+                "(2 + x) * 3", "2 + (x * 3)", "(2 + 3) * x", "2 + (3 * x)",
+                "(x + 2) * 3", "x + (2 * 3)",
+                "(x + y) * (z / w)", "(x + y) * (z / 7)", "(x + y) * (7 / z)", "(x + 7) * (y / z)",
+                "(7 + x) * (y / z)", "(2 + x) * (y / z)", "(x + 2) * (y / 3)", "(2 + x) * (y / 3)",
+                "(x + 2) * (3 / y)", "x + (y * (z / w))", "x + (y * (z / 7))", "x + (y * (7 / z))",
+                "x + (7 * (y / z))", "7 + (x * (y / z))", "2 + (x * (3 / y))", "x + (2 * (y / 4))",
+                "2 + (x * (y / 3))", "x + (2 * (3 / y))",
+                "x + ((y * z) / w)", "x + ((y * z) / 7)", "x + ((y * 7) / z)", "x + ((7 * y) / z)",
+                "7 + ((y * z) / w)", "2 + ((x * 3) / y)", "x + ((2 * y) / 3)", "2 + ((x * y) / 3)",
+                "x + ((2 * 3) / y)", "(((x + y) * z) / w)",
+                "(((x + y) * z) / 7)", "(((x + y) * 7) / z)", "(((x + 7) * y) / z)", "(((7 + x) * y) / z)",
+                "(((2 + x) * 3) / y)", "(((x + 2) * y) / 3)", "(((2 + x) * y) / 3)", "(((x + 2) * 3) / y)",
+                "((x + (y * z)) / w)", "((x + (y * z)) / 7)", "((x + (y * 7)) / y)", "((x + (7 * y)) / z)",
+                "((7 + (x * y)) / z)", "((2 + (x * 3)) / y)", "((x + (2 * y)) / 3)", "((2 + (x * y)) / 3)",
+                "((x + (2 * 3)) / y)",
+                "(xx + yy) * zz", "xx + (yy * zz)",
+                "(xx + yy) * 7", "xx + (yy * 7)",
+                "(xx + 7) * yy", "xx + (7 * yy)",
+                "(7 + xx) * yy", "7 + (xx * yy)",
+                "(2 + x) * 3", "2 + (x * 3)",
+                "(2 + 3) * x", "2 + (3 * x)",
+                "(x + 2) * 3", "x + (2 * 3)",
+                "(xx + yy) * (zz / ww)", "(xx + yy) * (zz / 7)",
+                "(xx + yy) * (7 / zz)", "(xx + 7) * (yy / zz)",
+                "(7 + xx) * (yy / zz)", "(2 + xx) * (yy / zz)",
+                "(xx + 2) * (yy / 3)", "(2 + xx) * (yy / 3)",
+                "(xx + 2) * (3 / yy)", "xx + (yy * (zz / ww))",
+                "xx + (yy * (zz / 7))", "xx + (yy * (7 / zz))",
+                "xx + (7 * (yy / zz))", "7 + (xx * (yy / zz))",
+                "2 + (xx * (3 / yy))", "xx + (2 * (yy / 4))",
+                "2 + (xx * (yy / 3))", "xx + (2 * (3 / yy))",
+                "xx + ((yy * zz) / ww)", "xx + ((yy * zz) / 7)",
+                "xx + ((yy * 7) / zz)", "xx + ((7 * yy) / zz)",
+                "7 + ((yy * zz) / ww)", "2 + ((xx * 3) / yy)",
+                "xx + ((2 * yy) / 3)", "2 + ((xx * yy) / 3)",
+                "xx + ((2 * 3) / yy)", "(((xx + yy) * zz) / ww)",
+                "(((xx + yy) * zz) / 7)", "(((xx + yy) * 7) / zz)",
+                "(((xx + 7) * yy) / zz)", "(((7 + xx) * yy) / zz)",
+                "(((2 + xx) * 3) / yy)", "(((xx + 2) * yy) / 3)",
+                "(((2 + xx) * yy) / 3)", "(((xx + 2) * 3) / yy)",
+                "((xx + (yy * zz)) / ww)", "((xx + (yy * zz)) / 7)",
+                "((xx + (yy * 7)) / yy)", "((xx + (7 * yy)) / zz)",
+                "((7 + (xx * yy)) / zz)", "((2 + (xx * 3)) / yy)",
+                "((xx + (2 * yy)) / 3)", "((2 + (xx * yy)) / 3)",
+                "((xx + (2 * 3)) / yy)"
+             };
+
       static const std::size_t expression_list_size = sizeof(expression_list) / sizeof(std::string);
 
       T  x = T(0);
@@ -38927,9 +38928,9 @@ namespace exprtk
    namespace information
    {
       static const char* library = "Mathematical Expression Toolkit";
-      static const char* version = "2.71828182845904523536028747135266249775724709369995957"
-                                   "4966967627724076630353547594571382178525166427427466391";
-      static const char* date    = "20190818";
+      static const char* version = "2.7182818284590452353602874713526624977572470936999595749"
+                                   "669676277240766303535475945713821785251664274274663919320";
+      static const char* date    = "20200101";
 
       static inline std::string data()
       {
