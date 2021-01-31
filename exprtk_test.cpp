@@ -1178,6 +1178,43 @@ inline bool test_expression(const std::string& expression_string, const T& expec
 }
 
 template <typename T>
+struct edge_cases {};
+
+template <>
+struct edge_cases<float>
+{
+   static inline std::vector<test_t> test_cases()
+   {
+      std::vector<test_t> cases;
+      cases.push_back(test_t(" 1.175494350822287508e-38",  1.175494350822287508e-38));
+      cases.push_back(test_t(" 3.402823466385288598e+38",  3.402823466385288598e+38));
+      cases.push_back(test_t("+1.175494350822287508e-38", +1.175494350822287508e-38));
+      cases.push_back(test_t("+3.402823466385288598e+38", +3.402823466385288598e+38));
+      cases.push_back(test_t("-1.175494350822287508e-38", -1.175494350822287508e-38));
+      cases.push_back(test_t("-3.402823466385288598e+38", -3.402823466385288598e+38));
+
+      return cases;
+   }
+};
+
+template <>
+struct edge_cases<double>
+{
+   static inline std::vector<test_t> test_cases()
+   {
+      std::vector<test_t> cases;
+      cases.push_back(test_t(" 2.2250738585072013831e-308",  2.2250738585072013831e-308));
+      cases.push_back(test_t(" 1.7976931348623157081e+308",  1.7976931348623157081e+308));
+      cases.push_back(test_t("+2.2250738585072013831e-308", +2.2250738585072013831e-308));
+      cases.push_back(test_t("+1.7976931348623157081e+308", +1.7976931348623157081e+308));
+      cases.push_back(test_t("-2.2250738585072013831e-308", -2.2250738585072013831e-308));
+      cases.push_back(test_t("-1.7976931348623157081e+308", -1.7976931348623157081e+308));
+
+      return cases;
+   }
+};
+
+template <typename T>
 inline bool run_test00()
 {
    const std::size_t rounds = 10;
@@ -1187,6 +1224,25 @@ inline bool run_test00()
       for (std::size_t i = 0; i < global_test_list_size; ++i)
       {
          if (!test_expression<T>(global_test_list[i].first,T(global_test_list[i].second)))
+         {
+            result = false;
+         }
+      }
+
+      if (!result)
+      {
+         return false;
+      }
+   }
+
+   {
+      const std::vector<test_t> tests = edge_cases<T>::test_cases();
+
+      bool result = true;
+
+      for (std::size_t i = 0; i < tests.size(); ++i)
+      {
+         if (!test_expression<T>(tests[i].first,T(tests[i].second)))
          {
             result = false;
          }

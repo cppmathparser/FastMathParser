@@ -812,34 +812,23 @@ namespace exprtk
             #undef exprtk_register_int_type_tag
 
             template <typename T>
-            struct epsilon_type
-            {
-               static inline T value()
-               {
-                  const T epsilon = T(0.0000000001);
-                  return epsilon;
-               }
-            };
+            struct epsilon_type {};
 
-            template <>
-            struct epsilon_type <float>
-            {
-               static inline float value()
-               {
-                  const float epsilon = float(0.000001f);
-                  return epsilon;
-               }
-            };
+            #define exprtk_define_epsilon_type(Type, Epsilon) \
+            template <> struct epsilon_type<Type>             \
+            {                                                 \
+               static inline Type value()                     \
+               {                                              \
+                  const Type epsilon = static_cast<Type>(Epsilon);         \
+                  return epsilon;                             \
+               }                                              \
+            };                                                \
 
-            template <>
-            struct epsilon_type <long double>
-            {
-               static inline long double value()
-               {
-                  const long double epsilon = static_cast<long double>(0.000000000001);
-                  return epsilon;
-               }
-            };
+            exprtk_define_epsilon_type(float      ,      0.000001f)
+            exprtk_define_epsilon_type(double     ,   0.0000000001)
+            exprtk_define_epsilon_type(long double, 0.000000000001)
+
+            #undef exprtk_define_epsilon_type
 
             template <typename T>
             inline bool is_nan_impl(const T v, real_type_tag)
@@ -1839,8 +1828,8 @@ namespace exprtk
       template <typename T>
       inline bool valid_exponent(const int exponent, numeric::details::real_type_tag)
       {
-         return (std::numeric_limits<T>::min_exponent10 <= exponent) &&
-                (exponent <= std::numeric_limits<T>::max_exponent10) ;
+         using namespace details::numeric;
+         return (numeric_info<T>::min_exp <= exponent) && (exponent <= numeric_info<T>::max_exp);
       }
 
       template <typename Iterator, typename T>
@@ -1885,14 +1874,7 @@ namespace exprtk
 
             while (end != itr)
             {
-               // Note: For 'physical' superscalar architectures it
-               // is advised that the following loop be: 4xPD1 and 1xPD2
                unsigned int digit;
-
-               #ifdef exprtk_enable_superscalar
-               parse_digit_1(d)
-               parse_digit_1(d)
-               #endif
                parse_digit_1(d)
                parse_digit_1(d)
                parse_digit_2(d)
@@ -1913,12 +1895,6 @@ namespace exprtk
                while (end != itr)
                {
                   unsigned int digit;
-
-                  #ifdef exprtk_enable_superscalar
-                  parse_digit_1(tmp_d)
-                  parse_digit_1(tmp_d)
-                  parse_digit_1(tmp_d)
-                  #endif
                   parse_digit_1(tmp_d)
                   parse_digit_1(tmp_d)
                   parse_digit_2(tmp_d)
@@ -1928,12 +1904,12 @@ namespace exprtk
                {
                   instate = true;
 
-                  const int exponent = static_cast<int>(-std::distance(curr, itr));
+                  const int frac_exponent = static_cast<int>(-std::distance(curr, itr));
 
-                  if (!valid_exponent<T>(exponent, numeric::details::real_type_tag()))
+                  if (!valid_exponent<T>(frac_exponent, numeric::details::real_type_tag()))
                      return false;
 
-                  d += compute_pow10(tmp_d, exponent);
+                  d += compute_pow10(tmp_d, frac_exponent);
                }
 
                #undef parse_digit_1
@@ -4404,7 +4380,7 @@ namespace exprtk
       {
       public:
 
-         parameter_list(std::vector<type_store>& pl)
+         explicit parameter_list(std::vector<type_store>& pl)
          : parameter_list_(pl)
          {}
 
@@ -4461,12 +4437,12 @@ namespace exprtk
          typedef type_store<T> type_store_t;
          typedef ViewType      value_t;
 
-         type_view(type_store_t& ts)
+         explicit type_view(type_store_t& ts)
          : ts_(ts),
            data_(reinterpret_cast<value_t*>(ts_.data))
          {}
 
-         type_view(const type_store_t& ts)
+         explicit type_view(const type_store_t& ts)
          : ts_(const_cast<type_store_t&>(ts)),
            data_(reinterpret_cast<value_t*>(ts_.data))
          {}
@@ -4511,11 +4487,11 @@ namespace exprtk
          typedef type_store<T> type_store_t;
          typedef T value_t;
 
-         scalar_view(type_store_t& ts)
+         explicit scalar_view(type_store_t& ts)
          : v_(*reinterpret_cast<value_t*>(ts.data))
          {}
 
-         scalar_view(const type_store_t& ts)
+         explicit scalar_view(const type_store_t& ts)
          : v_(*reinterpret_cast<value_t*>(const_cast<type_store_t&>(ts).data))
          {}
 
@@ -4802,7 +4778,7 @@ namespace exprtk
               destruct (true)
             {}
 
-            control_block(const std::size_t& dsize)
+            explicit control_block(const std::size_t& dsize)
             : ref_count(1    ),
               size     (dsize),
               data     (0    ),
@@ -4880,7 +4856,7 @@ namespace exprtk
          : control_block_(control_block::create(0))
          {}
 
-         vec_data_store(const std::size_t& size)
+         explicit vec_data_store(const std::size_t& size)
          : control_block_(control_block::create(size,reinterpret_cast<data_t>(0),true))
          {}
 
@@ -6651,7 +6627,7 @@ namespace exprtk
       {
       public:
 
-         break_exception(const T& v)
+         explicit break_exception(const T& v)
          : value(v)
          {}
 
@@ -7559,13 +7535,13 @@ namespace exprtk
                                   const std::size_t r1,
                                   const std::size_t size) const
          {
-            if ((r0 < 0) || (r0 >= size))
+            if (r0 >= size)
             {
                throw std::runtime_error("range error: (r0 < 0) || (r0 >= size)");
                return false;
             }
 
-            if ((r1 < 0) || (r1 >= size))
+            if (r1 >= size)
             {
                throw std::runtime_error("range error: (r1 < 0) || (r1 >= size)");
                return false;
@@ -37500,8 +37476,16 @@ namespace exprtk
       template <typename BaseFuncType>
       struct scoped_bft
       {
-         scoped_bft(BaseFuncType& bft) : bft_(bft) { bft_.pre (); }
-        ~scoped_bft()                              { bft_.post(); }
+         explicit scoped_bft(BaseFuncType& bft)
+         : bft_(bft)
+         {
+            bft_.pre ();
+         }
+
+        ~scoped_bft()
+         {
+            bft_.post();
+         }
 
          BaseFuncType& bft_;
 
